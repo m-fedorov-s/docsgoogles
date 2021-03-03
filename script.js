@@ -12,12 +12,23 @@ function sortGoogleSheets() {
   Logger.log("Sorted: ");
   Logger.log(sheetNameArray);
   // Reorder the sheets.
-  for( var j = 0; j < sheets.length; j++ ) {
+  for (var j = 0; j < sheets.length; j++) {
     ss.setActiveSheet(ss.getSheetByName(sheetNameArray[j]));
     ss.moveActiveSheet(j + 1);
   }
   ss.setActiveSheet(ss.getSheetByName("_Вводная"));
   ss.moveActiveSheet(1);
+}
+
+function CreateGameTable(sheet, columns, rowsCount) {
+  var columnsCaptions = [["Столбец/ строка",].concat(columns)];
+  var plusFormula = "Sum(R[" + (-3 - rowsCount) + "]C[0]:R[" + (-1 - rowsCount) + "]C[0]; R[" + (-2 - rowsCount) + "]C[-1]:R[" + (-2 - rowsCount) + "]C[1]) - R[" + (-2 - rowsCount) + "]C[0]";
+  var finalFormula = "SUMPRODUCT(R[" + (-rowsCount) + "]C[-" + columns.length + "]:R[-1]C[-1]; R[2]C[-" + columns.length + "]:R[" + (rowsCount + 1) + "]C[-1])";
+  sheet.getRange(rowsCount + 5, 2, rowsCount, columns.length).setFormulaR1C1(plusFormula).setFontColor("white");
+  sheet.getRange(rowsCount + 3, columns.length + 2).setFormulaR1C1(finalFormula);
+  sheet.getRange(3, 1, rowCaptions.length, 1).setValues(rowCaptions.map(i => [i,]));
+  sheet.getRange("A:A").setNumberFormat("@");
+  sheet.getRange(2, 1, 1, columnsCaptions[0].length).setValues(columnsCaptions);
 }
 
 function Initialize() {
@@ -33,7 +44,7 @@ function Initialize() {
   for (let i = 0; i < rows; ++i) {
     const line = data[i];
     if (line[0] == "Столбцы") {
-      columnsCount= Number(line[1]);
+      columnsCount = Number(line[1]);
       Logger.log("Got " + columnsCount + " cols");
     } else if (line[0] == "Строки") {
       rowsCount = Number(line[1]);
@@ -91,7 +102,10 @@ function Initialize() {
   Logger.log("Создан лист с ответами.");
   // создаем формы для приема ответов
   forms = []
-  if (create) {
+  formsCount = PropertiesService.getScriptProperties().getProperty("formsCount");
+  Logger.log("formsCount: ", formsCount);
+  if (create) { // (formCount == null) {
+    Logger.log("No binded forms found.")
     if (teams.length > 0) {
       var form = FormApp.create('Сдача ответов для крестиков-ноликов.');
       forms.push(form);
@@ -108,16 +122,18 @@ function Initialize() {
         .setChoiceValues(value)
         .setRequired(true);
     }
-  }
+  } // else {
+  //   for (var index = 0; index < Number(formsCount) ; ++index) {
+  //     var form = FormApp.openById(PropertiesService.getScriptProperties().getProperty("formId" + index));
+  //     Logger.log("Found form " + form.getTitle());
+  //   }
+  // }
   for (let [key, value] of groups) {
-      teams = teams.concat(value);
+    teams = teams.concat(value);
   }
   teams.sort();
   Logger.log("Зарегестрировано " + teams.length + " команд.");
   // создаем листы с оценками для каждой команды.
-  var columnsCaptions = [["Столбец/ строка",].concat(columns)];
-  var plusFormula = "Sum(R["+ (-3-rowsCount) + "]C[0]:R["+ (-1-rowsCount) + "]C[0]; R["+ (-2-rowsCount) + "]C[-1]:R["+ (-2-rowsCount) + "]C[1]) - R["+ (-2-rowsCount) + "]C[0]";
-  var finalFormula= "SUMPRODUCT(R[" + (-rowsCount) + "]C[-" + columnsCount + "]:R[-1]C[-1]; R[2]C[-" + columnsCount + "]:R[" + (rowsCount + 1) + "]C[-1])";
   // var costs_captions = [];
   // const bonusForColumn = 'IF(AND(COUNTBLANK(R[-' + themeSize + ']C[0]:R[-1]C[0])=0;COUNTIF(R[-' + themeSize + ']C[0]:R[-1]C[0];"=0")=0);50;"")';
   // const bonusForRow = 'IF(AND(COUNTIf(R[0]C[-' + themes.length + ']:R[0]C[-1]; "=0")=0;COUNTBLANK(R[0]C[-' + themes.length + ']:R[0]C[-1])=0); R[0]C[-' + (themes.length + 1) + '];"")';
@@ -133,15 +149,13 @@ function Initialize() {
     basic_sheet = document.insertSheet();
     basic_sheet.setName(teams[0]);
   }
+  CreateGameTable(basic_sheet, colunms, rowsCount);
   basic_sheet.getRange(1, 1).setValue(teams[0]);
-  basic_sheet.getRange(rowsCount + 5, 2, rowsCount, columnsCount).setFormulaR1C1(plusFormula).setFontColor("white");
-  basic_sheet.getRange(rowsCount + 3, columnsCount + 2).setFormulaR1C1(finalFormula);
-  basic_sheet.getRange(3, 1, rowCaptions.length, 1).setValues(rowCaptions.map(i => [i, ]));
-  basic_sheet.getRange("A:A").setNumberFormat("@");
   // basic_sheet.getRange(3, themes.length + 2, themeSize, 1).setFormulaR1C1(bonusForRow);
   // basic_sheet.getRange(themeSize + 3, 2, 1, themes.length).setFormulaR1C1(bonusForColumn);
   // basic_sheet.getRange(themeSize + 3, themes.length + 2).setFormulaR1C1("Sum(R[-" + themeSize + "]C[-" + themes.length + "]:R[-1]C[0];R[0]C[-" + themes.length + "]:R[0]C[-1])");
-  basic_sheet.getRange(2, 1, 1, columnsCaptions[0].length).setValues(columnsCaptions);
+  documet.setActiveSheet(basic_sheet);
+  document.moveActiveSheet(4);
   // копируем листы для остальных команд
   for (i = 1; i < teams.length; ++i) {
     var name = teams[i];
@@ -152,6 +166,8 @@ function Initialize() {
     newSheet = basic_sheet.copyTo(document);
     newSheet.setName(name);
     newSheet.getRange("A1").setValue(name);
+    documet.setActiveSheet(newSheet);
+    document.moveActiveSheet(i + 4);
   }
   Logger.log("Созданы листы с результатами.")
   // Создаем лист с результатами всех команд.
@@ -172,9 +188,12 @@ function Initialize() {
   summary.getRange(2, 2, teams.length, 1).setFormulasR1C1(formulas);
   summary.getRange(1, 2).setValue("Результат");
   Logger.log("Сводка создана.");
+  documet.setActiveSheet(summary);
+  document.moveActiveSheet(2);
   // Создаем табличку с просмотром результатов.
   if (create) {
     var viewer = SpreadsheetApp.create("Результаты игры");
+    PropertiesService.getScriptProperties().setProperty("viewResultsId", viewer.getId());
     var sheet = viewer.getSheets()[0];
     sheet.setName("Подробные результаты");
     Logger.log("Создана табличка для просмотра: " + viewer.getUrl());
@@ -185,15 +204,17 @@ function Initialize() {
         .setFontWeight("bold");
     }
     var overview = viewer.insertSheet();
+    overview.setName("Общие баллы");
     for (let i = 0; i * 10 < teams.length; ++i) {
-      overview.getRange(1, 1 + i * 3).setFormula('=IMPORTRANGE("' + document.getId() + '"; "\'Сводка\'!A' + (1 + i * 10) + ':B' + (11 + i * 10) + '")');
+      overview.getRange(1, 1 + i * 3).setFormula('=IMPORTRANGE("' + document.getId() + '"; "\'Сводка\'!A' + (1 + i * 10) + ':B' + ((1 + i) * 10) + '")');
     }
-    overview.getRange
     Logger.log("Табличка заполнена");
-    sortGoogleSheets(document);
   }
   // Заполняем формы
-  for (var form of forms) {
+  PropertiesService.getScriptProperties().setProperty("formsCount", forms.length);
+  for (var index = 0; index < forms.lenght; ++index) {
+    var form = forms[index];
+    PropertiesService.getScriptProperties().setProperty("formId" + index, form.getId());
     form.setDescription("Можно проверить координаты ячейки в табличке по ссылке " + viewer.getUrl());
     form.addMultipleChoiceItem()
       .setTitle('Выберете столбец:')
@@ -312,7 +333,7 @@ function CheckAnswerAll(columnIndex, rowIndex, correctAnswer) {
       Logger.log("Checking " + name);
       var sheet = sheets[i];
       var lastRow = sheet.getLastRow();
-      answrs = sheet.getRange(1,1, lastRow, 7).getValues();
+      answrs = sheet.getRange(1, 1, lastRow, 7).getValues();
       for (let j = 0; j < answrs.length; ++j) {
         var line = answrs[j];
         if (line[2] == theme && line[3] == rowIndex) {
