@@ -31,6 +31,12 @@ function CreateGameTable(sheet, columns, rowsCount) {
   sheet.getRange(2, 1, 1, columnsCaptions[0].length).setValues(columnsCaptions);
 }
 
+function ClearForm(form) {
+  for (var item of form.getItems()) {
+    form.deleteItem(item);
+  }
+}
+
 function Initialize() {
   const document = SpreadsheetApp.getActiveSpreadsheet()
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("_вводные_данные");
@@ -40,7 +46,6 @@ function Initialize() {
   var teams = [];
   var columnsCount = 0;
   var rowsCount = 0;
-  var create = false;
   for (let i = 0; i < rows; ++i) {
     const line = data[i];
     if (line[0] == "Столбцы") {
@@ -74,8 +79,6 @@ function Initialize() {
       }
       groups.set(group_name, group);
       Logger.log("Считана группа из " + (group.length - 1) + " команд.");
-    } else if (line[0] == "create") {
-      create = Number(line[1]) != 0;
     }
   }
   Logger.log("Считаны данные.");
@@ -85,26 +88,24 @@ function Initialize() {
   Logger.log("rowCaptions are " + rowCaptions);
   // Создаем лист с ответами.
   var answers = document.getSheetByName("_ответы");
-  if (answers != null) {
-    answers.clear();
-  } else {
+  if (answers == null) {
     answers = document.insertSheet();
     answers.setName("_ответы");
   }
-  answersCaptions = [["Столбец", "Строка", "Правильный ответ"]];
+  answersCaptions = [["Столбец", "Строка"]];
   for (var i = 0; i < columnsCount; ++i) {
     for (var j = 1; j <= rowsCount; ++j) {
-      answersCaptions.push([String.fromCharCode('A'.charCodeAt() + i), j, ""])
+      answersCaptions.push([String.fromCharCode('A'.charCodeAt() + i), j])
     }
   }
-  answers.getRange(1, 1, columnsCount * rowsCount + 1, 3).setValues(answersCaptions);
+  answers.getRange(1, 1, columnsCount * rowsCount + 1, 2).setValues(answersCaptions);
+  answers.getRange(1, 3).setValue("Правильный ответ");
   answers.getRange("C:C").setNumberFormat("@");
   Logger.log("Создан лист с ответами.");
   // создаем формы для приема ответов
   forms = []
   formsCount = PropertiesService.getScriptProperties().getProperty("formsCount");
-  Logger.log("formsCount: ", formsCount);
-  if (create) { // (formCount == null) {
+  if (formsCount == null) {
     Logger.log("No binded forms found.")
     if (teams.length > 0) {
       var form = FormApp.create('Сдача ответов для крестиков-ноликов.');
@@ -122,12 +123,41 @@ function Initialize() {
         .setChoiceValues(value)
         .setRequired(true);
     }
-  } // else {
-  //   for (var index = 0; index < Number(formsCount) ; ++index) {
-  //     var form = FormApp.openById(PropertiesService.getScriptProperties().getProperty("formId" + index));
-  //     Logger.log("Found form " + form.getTitle());
-  //   }
-  // }
+    Logger.log("Created " + forms.length + " forms");
+    PropertiesService.getScriptProperties().setProperty("formsCount", forms.length);
+    for (var index = 0; index < forms.length; ++index) {
+      var form = forms[index];
+      PropertiesService.getScriptProperties().setProperty("formId" + index, form.getId());
+      form.setDestination(FormApp.DestinationType.SPREADSHEET, document.getId());
+    }
+    Logger.log("Saved forms ids");
+  } else {
+    Logger.log("Found " + formsCount + " forms");
+    var index = 0;
+    if (teams.length > 0) {
+      var form = FormApp.openById(PropertiesService.getScriptProperties().getProperty("formId" + index));
+      ++index;
+      Logger.log("Found form " + form.getId());
+      ClearForm(form);
+      forms.push(form);
+      form.addListItem()
+        .setTitle('Ваша команда:')
+        .setChoiceValues(teams)
+        .setRequired(true);
+    }
+    for (let [key, value] of groups) {
+      var form = FormApp.openById(PropertiesService.getScriptProperties().getProperty("formId" + index));
+      ++index;
+      Logger.log("Found form " + form.getId());
+      ClearForm(form);
+      form.setTitle('Сдача ответов для крестиков-ноликов (группа ' + key + ")");
+      forms.push(form);
+      form.addListItem()
+        .setTitle('Ваша команда:')
+        .setChoiceValues(value)
+        .setRequired(true);
+    }
+  }
   for (let [key, value] of groups) {
     teams = teams.concat(value);
   }
@@ -149,13 +179,14 @@ function Initialize() {
     basic_sheet = document.insertSheet();
     basic_sheet.setName(teams[0]);
   }
-  CreateGameTable(basic_sheet, colunms, rowsCount);
+  CreateGameTable(basic_sheet, columns, rowsCount);
   basic_sheet.getRange(1, 1).setValue(teams[0]);
   // basic_sheet.getRange(3, themes.length + 2, themeSize, 1).setFormulaR1C1(bonusForRow);
   // basic_sheet.getRange(themeSize + 3, 2, 1, themes.length).setFormulaR1C1(bonusForColumn);
   // basic_sheet.getRange(themeSize + 3, themes.length + 2).setFormulaR1C1("Sum(R[-" + themeSize + "]C[-" + themes.length + "]:R[-1]C[0];R[0]C[-" + themes.length + "]:R[0]C[-1])");
-  documet.setActiveSheet(basic_sheet);
-  document.moveActiveSheet(4);
+  document.setActiveSheet(basic_sheet);
+  Logger.log("Moving sheet to place " + (3 + forms.length) + " of " + document.getNumSheets());
+  document.moveActiveSheet(3 + forms.length);
   // копируем листы для остальных команд
   for (i = 1; i < teams.length; ++i) {
     var name = teams[i];
@@ -166,8 +197,9 @@ function Initialize() {
     newSheet = basic_sheet.copyTo(document);
     newSheet.setName(name);
     newSheet.getRange("A1").setValue(name);
-    documet.setActiveSheet(newSheet);
-    document.moveActiveSheet(i + 4);
+    document.setActiveSheet(newSheet);
+    Logger.log("Moving sheet to place " + (i + 3 + forms.length) + " of " + document.getNumSheets());
+    document.moveActiveSheet(i + 3 + forms.length);
   }
   Logger.log("Созданы листы с результатами.")
   // Создаем лист с результатами всех команд.
@@ -188,10 +220,11 @@ function Initialize() {
   summary.getRange(2, 2, teams.length, 1).setFormulasR1C1(formulas);
   summary.getRange(1, 2).setValue("Результат");
   Logger.log("Сводка создана.");
-  documet.setActiveSheet(summary);
+  document.setActiveSheet(summary);
   document.moveActiveSheet(2);
   // Создаем табличку с просмотром результатов.
-  if (create) {
+  var resultsId = PropertiesService.getScriptProperties().getProperty("viewResultsId");
+  if (resultsId == null) {
     var viewer = SpreadsheetApp.create("Результаты игры");
     PropertiesService.getScriptProperties().setProperty("viewResultsId", viewer.getId());
     var sheet = viewer.getSheets()[0];
@@ -208,13 +241,24 @@ function Initialize() {
     for (let i = 0; i * 10 < teams.length; ++i) {
       overview.getRange(1, 1 + i * 3).setFormula('=IMPORTRANGE("' + document.getId() + '"; "\'Сводка\'!A' + (1 + i * 10) + ':B' + ((1 + i) * 10) + '")');
     }
-    Logger.log("Табличка заполнена");
+  } else {
+    var viewer = SpreadsheetApp.openById(resultsId);
+    var sheet = viewer.getSheetByName("Подробные результаты");
+    Logger.log("Найдена табличка для просмотра: " + viewer.getId());
+    var step = rowsCount + 3;
+    for (let i = 0; i < teams.length; ++i) {
+      sheet.getRange(i * (step + 1) + 1, 1).setFormula('=IMPORTRANGE("' + document.getId() + '"; "\'' + teams[i] + '\'!A1:L' + step + '")')
+        .setFontSize(16)
+        .setFontWeight("bold");
+    }
+    var overview = viewer.getSheetByName("Общие баллы");
+    for (let i = 0; i * 10 < teams.length; ++i) {
+      overview.getRange(1, 1 + i * 3).setFormula('=IMPORTRANGE("' + document.getId() + '"; "\'Сводка\'!A' + (1 + i * 10) + ':B' + ((1 + i) * 10) + '")');
+    }
   }
+  Logger.log("Табличка заполнена");
   // Заполняем формы
-  PropertiesService.getScriptProperties().setProperty("formsCount", forms.length);
-  for (var index = 0; index < forms.lenght; ++index) {
-    var form = forms[index];
-    PropertiesService.getScriptProperties().setProperty("formId" + index, form.getId());
+  for (var form of forms) {
     form.setDescription("Можно проверить координаты ячейки в табличке по ссылке " + viewer.getUrl());
     form.addMultipleChoiceItem()
       .setTitle('Выберете столбец:')
@@ -229,7 +273,6 @@ function Initialize() {
     form.addTextItem()
       .setTitle('Ваш ответ:')
       .setRequired(true);
-    form.setDestination(FormApp.DestinationType.SPREADSHEET, document.getId());
     Logger.log('Published form URL: ' + form.getPublishedUrl());
     Logger.log('Editor form URL: ' + form.getEditUrl());
   }
