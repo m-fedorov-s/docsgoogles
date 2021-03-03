@@ -1,10 +1,10 @@
 function sortGoogleSheets() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  let ss = SpreadsheetApp.getActiveSpreadsheet();
   // Store all the worksheets in this array
-  var sheetNameArray = [];
-  var sheets = ss.getSheets();
+  let sheetNameArray = [];
+  let sheets = ss.getSheets();
   Logger.log("Got " + sheets.length + " sheets.");
-  for (var i = 0; i < sheets.length; i++) {
+  for (let i = 0; i < sheets.length; i++) {
     sheetNameArray.push(sheets[i].getName());
   }
 
@@ -12,7 +12,7 @@ function sortGoogleSheets() {
   Logger.log("Sorted: ");
   Logger.log(sheetNameArray);
   // Reorder the sheets.
-  for (var j = 0; j < sheets.length; j++) {
+  for (let j = 0; j < sheets.length; j++) {
     ss.setActiveSheet(ss.getSheetByName(sheetNameArray[j]));
     ss.moveActiveSheet(j + 1);
   }
@@ -21,9 +21,9 @@ function sortGoogleSheets() {
 }
 
 function CreateGameTable(sheet, columns, rowsCount) {
-  var columnsCaptions = [["Столбец/ строка",].concat(columns)];
-  var plusFormula = "Sum(R[" + (-3 - rowsCount) + "]C[0]:R[" + (-1 - rowsCount) + "]C[0]; R[" + (-2 - rowsCount) + "]C[-1]:R[" + (-2 - rowsCount) + "]C[1]) - R[" + (-2 - rowsCount) + "]C[0]";
-  var finalFormula = "SUMPRODUCT(R[" + (-rowsCount) + "]C[-" + columns.length + "]:R[-1]C[-1]; R[2]C[-" + columns.length + "]:R[" + (rowsCount + 1) + "]C[-1])";
+  let columnsCaptions = [["Столбец/ строка",].concat(columns)];
+  let plusFormula = "Sum(R[" + (-3 - rowsCount) + "]C[0]:R[" + (-1 - rowsCount) + "]C[0]; R[" + (-2 - rowsCount) + "]C[-1]:R[" + (-2 - rowsCount) + "]C[1]) - R[" + (-2 - rowsCount) + "]C[0]";
+  let finalFormula = "SUMPRODUCT(R[" + (-rowsCount) + "]C[-" + columns.length + "]:R[-1]C[-1]; R[2]C[-" + columns.length + "]:R[" + (rowsCount + 1) + "]C[-1])";
   sheet.getRange(rowsCount + 5, 2, rowsCount, columns.length).setFormulaR1C1(plusFormula).setFontColor("white");
   sheet.getRange(rowsCount + 3, columns.length + 2).setFormulaR1C1(finalFormula);
   sheet.getRange(3, 1, rowCaptions.length, 1).setValues(rowCaptions.map(i => [i,]));
@@ -32,20 +32,20 @@ function CreateGameTable(sheet, columns, rowsCount) {
 }
 
 function ClearForm(form) {
-  for (var item of form.getItems()) {
+  for (let item of form.getItems()) {
     form.deleteItem(item);
   }
 }
 
 function Initialize() {
   const document = SpreadsheetApp.getActiveSpreadsheet()
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("_вводные_данные");
-  const data = sheet.getDataRange().getValues();
+  let inputSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("_вводные_данные");
+  const data = inputSheet.getDataRange().getValues();
   const rows = data.length;
-  var groups = new Map();
-  var teams = [];
-  var columnsCount = 0;
-  var rowsCount = 0;
+  let groups = new Map();
+  let teams = [];
+  let columnsCount = 0;
+  let rowsCount = 0;
   for (let i = 0; i < rows; ++i) {
     const line = data[i];
     if (line[0] == "Столбцы") {
@@ -61,7 +61,7 @@ function Initialize() {
       }
       Logger.log("Got " + teams.length + " teams");
     } else if (line[0] == "Команды") {
-      for (var j = 1; j < line.length; ++j) {
+      for (let j = 1; j < line.length; ++j) {
         if (String(line[j]) == "") {
           break;
         }
@@ -71,14 +71,14 @@ function Initialize() {
     } else if (line[0] == "Группа команд") {
       let group = []
       let group_name = String(line[1]);
-      for (var j = 2; j < line.length; ++j) {
+      for (let j = 2; j < line.length; ++j) {
         if (String(line[j]) == "") {
           break;
         }
         group.push(String(line[j]));
       }
       groups.set(group_name, group);
-      Logger.log("Считана группа из " + (group.length - 1) + " команд.");
+      Logger.log("Считана группа из " + group.length + " команд.");
     }
   }
   Logger.log("Считаны данные.");
@@ -93,8 +93,8 @@ function Initialize() {
     answers.setName("_ответы");
   }
   answersCaptions = [["Столбец", "Строка"]];
-  for (var i = 0; i < columnsCount; ++i) {
-    for (var j = 1; j <= rowsCount; ++j) {
+  for (let i = 0; i < columnsCount; ++i) {
+    for (let j = 1; j <= rowsCount; ++j) {
       answersCaptions.push([String.fromCharCode('A'.charCodeAt() + i), j])
     }
   }
@@ -108,7 +108,7 @@ function Initialize() {
   if (formsCount == null) {
     Logger.log("No binded forms found.")
     if (teams.length > 0) {
-      var form = FormApp.create('Сдача ответов для крестиков-ноликов.');
+      let form = FormApp.create('Сдача ответов для крестиков-ноликов.');
       forms.push(form);
       form.addListItem()
         .setTitle('Ваша команда:')
@@ -116,7 +116,7 @@ function Initialize() {
         .setRequired(true);
     }
     for (let [key, value] of groups) {
-      var form = FormApp.create('Сдача ответов для крестиков-ноликов (группа ' + key + ")")
+      let form = FormApp.create('Сдача ответов для крестиков-ноликов (группа ' + key + ")")
       forms.push(form);
       form.addListItem()
         .setTitle('Ваша команда:')
@@ -125,17 +125,17 @@ function Initialize() {
     }
     Logger.log("Created " + forms.length + " forms");
     PropertiesService.getScriptProperties().setProperty("formsCount", forms.length);
-    for (var index = 0; index < forms.length; ++index) {
-      var form = forms[index];
+    for (let index = 0; index < forms.length; ++index) {
+      let form = forms[index];
       PropertiesService.getScriptProperties().setProperty("formId" + index, form.getId());
       form.setDestination(FormApp.DestinationType.SPREADSHEET, document.getId());
     }
     Logger.log("Saved forms ids");
   } else {
     Logger.log("Found " + formsCount + " forms");
-    var index = 0;
+    let index = 0;
     if (teams.length > 0) {
-      var form = FormApp.openById(PropertiesService.getScriptProperties().getProperty("formId" + index));
+      let form = FormApp.openById(PropertiesService.getScriptProperties().getProperty("formId" + index));
       ++index;
       Logger.log("Found form " + form.getId());
       ClearForm(form);
@@ -146,7 +146,7 @@ function Initialize() {
         .setRequired(true);
     }
     for (let [key, value] of groups) {
-      var form = FormApp.openById(PropertiesService.getScriptProperties().getProperty("formId" + index));
+      let form = FormApp.openById(PropertiesService.getScriptProperties().getProperty("formId" + index));
       ++index;
       Logger.log("Found form " + form.getId());
       ClearForm(form);
@@ -167,12 +167,12 @@ function Initialize() {
   // var costs_captions = [];
   // const bonusForColumn = 'IF(AND(COUNTBLANK(R[-' + themeSize + ']C[0]:R[-1]C[0])=0;COUNTIF(R[-' + themeSize + ']C[0]:R[-1]C[0];"=0")=0);50;"")';
   // const bonusForRow = 'IF(AND(COUNTIf(R[0]C[-' + themes.length + ']:R[0]C[-1]; "=0")=0;COUNTBLANK(R[0]C[-' + themes.length + ']:R[0]C[-1])=0); R[0]C[-' + (themes.length + 1) + '];"")';
-  // for (var i = 1; i < themeSize + 1; ++i) {
+  // for (let i = 1; i < themeSize + 1; ++i) {
   //   costs_captions.push([10 * i]);
   // }
   // costs_captions.push(["Бонус за тему"]);
   // создаем лист для первой команды
-  var basic_sheet = document.getSheetByName(teams[0]);
+  let basic_sheet = document.getSheetByName(teams[0]);
   if (basic_sheet != null) {
     basic_sheet.clear();
   } else {
@@ -185,12 +185,12 @@ function Initialize() {
   // basic_sheet.getRange(themeSize + 3, 2, 1, themes.length).setFormulaR1C1(bonusForColumn);
   // basic_sheet.getRange(themeSize + 3, themes.length + 2).setFormulaR1C1("Sum(R[-" + themeSize + "]C[-" + themes.length + "]:R[-1]C[0];R[0]C[-" + themes.length + "]:R[0]C[-1])");
   document.setActiveSheet(basic_sheet);
-  Logger.log("Moving sheet to place " + (3 + forms.length) + " of " + document.getNumSheets());
-  document.moveActiveSheet(3 + forms.length);
+  Logger.log("Moving sheet to place " + (5 + forms.length) + " of " + document.getNumSheets());
+  document.moveActiveSheet(5 + forms.length);
   // копируем листы для остальных команд
   for (i = 1; i < teams.length; ++i) {
-    var name = teams[i];
-    var newSheet = document.getSheetByName(name);
+    let name = teams[i];
+    let newSheet = document.getSheetByName(name);
     if (newSheet != null) {
       document.deleteSheet(newSheet);
     }
@@ -198,21 +198,21 @@ function Initialize() {
     newSheet.setName(name);
     newSheet.getRange("A1").setValue(name);
     document.setActiveSheet(newSheet);
-    Logger.log("Moving sheet to place " + (i + 3 + forms.length) + " of " + document.getNumSheets());
-    document.moveActiveSheet(i + 3 + forms.length);
+    Logger.log("Moving sheet to place " + (i + 5 + forms.length) + " of " + document.getNumSheets());
+    document.moveActiveSheet(i + 5 + forms.length);
   }
   Logger.log("Созданы листы с результатами.")
   // Создаем лист с результатами всех команд.
-  var summary = document.getSheetByName("Сводка");
+  let summary = document.getSheetByName("Сводка");
   if (summary != null) {
     summary.clear();
   } else {
     summary = document.insertSheet();
     summary.setName("Сводка");
   }
-  var formulas = [];
-  var teams_col = [["Команда"],];
-  for (var i = 0; i < teams.length; ++i) {
+  let formulas = [];
+  let teams_col = [["Команда"],];
+  for (let i = 0; i < teams.length; ++i) {
     formulas.push(["='" + teams[i] + "'!R[" + (rowsCount + 1 - i) + "]C[" + columnsCount + "]"]);
     teams_col.push([teams[i]]);
   }
@@ -223,42 +223,33 @@ function Initialize() {
   document.setActiveSheet(summary);
   document.moveActiveSheet(2);
   // Создаем табличку с просмотром результатов.
-  var resultsId = PropertiesService.getScriptProperties().getProperty("viewResultsId");
+  let resultsId = PropertiesService.getScriptProperties().getProperty("viewResultsId");
   if (resultsId == null) {
     var viewer = SpreadsheetApp.create("Результаты игры");
     PropertiesService.getScriptProperties().setProperty("viewResultsId", viewer.getId());
-    var sheet = viewer.getSheets()[0];
-    sheet.setName("Подробные результаты");
-    Logger.log("Создана табличка для просмотра: " + viewer.getUrl());
-    var step = rowsCount + 3;
-    for (let i = 0; i < teams.length; ++i) {
-      sheet.getRange(i * (step + 1) + 1, 1).setFormula('=IMPORTRANGE("' + document.getId() + '"; "\'' + teams[i] + '\'!A1:L' + step + '")')
-        .setFontSize(16)
-        .setFontWeight("bold");
-    }
-    var overview = viewer.insertSheet();
+    viewer.getSheets()[0].setName("Подробные результаты");
+    let overview = viewer.insertSheet();
     overview.setName("Общие баллы");
-    for (let i = 0; i * 10 < teams.length; ++i) {
-      overview.getRange(1, 1 + i * 3).setFormula('=IMPORTRANGE("' + document.getId() + '"; "\'Сводка\'!A' + (1 + i * 10) + ':B' + ((1 + i) * 10) + '")');
-    }
+    Logger.log("Создана табличка для просмотра: " + viewer.getUrl());
   } else {
     var viewer = SpreadsheetApp.openById(resultsId);
-    var sheet = viewer.getSheetByName("Подробные результаты");
     Logger.log("Найдена табличка для просмотра: " + viewer.getId());
-    var step = rowsCount + 3;
-    for (let i = 0; i < teams.length; ++i) {
-      sheet.getRange(i * (step + 1) + 1, 1).setFormula('=IMPORTRANGE("' + document.getId() + '"; "\'' + teams[i] + '\'!A1:L' + step + '")')
-        .setFontSize(16)
-        .setFontWeight("bold");
-    }
-    var overview = viewer.getSheetByName("Общие баллы");
-    for (let i = 0; i * 10 < teams.length; ++i) {
-      overview.getRange(1, 1 + i * 3).setFormula('=IMPORTRANGE("' + document.getId() + '"; "\'Сводка\'!A' + (1 + i * 10) + ':B' + ((1 + i) * 10) + '")');
-    }
+  }
+  let sheet = viewer.getSheetByName("Подробные результаты");
+  let step = rowsCount + 3;
+  for (let i = 0; i < teams.length; ++i) {
+    sheet.getRange(i * (step + 1) + 1, 1).setFormula('=IMPORTRANGE("' + document.getId() + '"; "\'' + teams[i] + '\'!A1:L' + step + '")')
+      .setFontSize(16)
+      .setFontWeight("bold");
+  }
+  let overview = viewer.getSheetByName("Общие баллы");
+  let chank = 15;
+  for (let i = 0; i * chank < teams.length + 1; ++i) {
+    overview.getRange(1, 1 + i * 3).setFormula('=IMPORTRANGE("' + document.getId() + '"; "\'Сводка\'!A' + (1 + i * chank) + ':B' + ((1 + i) * chank) + '")');
   }
   Logger.log("Табличка заполнена");
   // Заполняем формы
-  for (var form of forms) {
+  for (let form of forms) {
     form.setDescription("Можно проверить координаты ячейки в табличке по ссылке " + viewer.getUrl());
     form.addMultipleChoiceItem()
       .setTitle('Выберете столбец:')
@@ -282,11 +273,11 @@ function Initialize() {
 
 function CheckLine(name, index) {
   Logger.log("Cheching row " + index + " of sheet " + name);
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name);
-  var line = sheet.getRange(index, 1, 1, 7);
+  let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name);
+  let line = sheet.getRange(index, 1, 1, 7);
   Logger.log("color is " + line.getBackground());
   if (line.getBackground() == "#ffffff") {
-    var values = line.getValues();
+    let values = line.getValues();
     const columnIndex = String(values[0][2]).charCodeAt(0) - 'A'.charCodeAt();
     const rowIndex = Number(values[0][3]) - 1;
     // var columnIndex = 0;
@@ -303,7 +294,7 @@ function CheckLine(name, index) {
     // } else {
     //   Logger.log("Unknown theme!! = '" + theme + "'");
     // }
-    var rowsCount = Number(PropertiesService.getScriptProperties().getProperty("rowsCount"));
+    const rowsCount = Number(PropertiesService.getScriptProperties().getProperty("rowsCount"));
     const answerIndex = columnIndex * rowsCount + rowIndex + 2;
     Logger.log("Looking for column " + columnIndex + " at row " + rowIndex + " (index is " + answerIndex + "; rowsCount is " + rowsCount + ")");
     const correctAnswer = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("_ответы").getRange("C" + String(answerIndex)).getValue();
@@ -311,13 +302,13 @@ function CheckLine(name, index) {
     if (answer == correctAnswer) {
       line.setBackground("#00FF00");
       const commandName = values[0][1];
-      var resultsheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(commandName);
+      let resultsheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(commandName);
       if (resultsheet == null) {
         Logger.log("Failed to find " + commandName);
         line.setBackground("#FF000A");
         line.getCell(1, 7).setValue("Команда не найдена!!");
       }
-      var cell = resultsheet.getRange("B3:G8").getCell(rowIndex, columnIndex + 1);
+      let cell = resultsheet.getRange("B3:G8").getCell(rowIndex, columnIndex + 1);
       if (cell.getValue() == "0") {
         line.setBackground("#FFA07A");
         line.getCell(1, 7).setValue("Повторная отправка?");
@@ -328,7 +319,7 @@ function CheckLine(name, index) {
     } else {
       line.setBackground("#FFA500");
       line.getCell(1, 7).setValue(correctAnswer);
-      var rule = SpreadsheetApp.newDataValidation()
+      let rule = SpreadsheetApp.newDataValidation()
         .requireValueInList(['Верно', 'Неверно'], true)
         .setAllowInvalid(false).build();
       line.getCell(1, 6).setDataValidation(rule);
@@ -337,76 +328,73 @@ function CheckLine(name, index) {
 }
 
 function CheckNewLine() {
-  var sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
+  let sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
   Logger.log("Got " + sheets.length + " sheets.");
-  for (var i = 0; i < sheets.length; i++) {
-    var name = sheets[i].getName();
+  for (let i = 0; i < sheets.length; i++) {
+    let name = sheets[i].getName();
     if (name.substring(0, 8) == "Проверка") {
       Logger.log("Checking " + name);
-      var sheet = sheets[i];
-      var lastRow = sheet.getLastRow();
+      let lastRow = sheets[i].getLastRow();
       CheckLine(name, lastRow);
     }
   }
 }
 
 function CheckAll() {
-  var sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
+  let sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
   Logger.log("Got " + sheets.length + " sheets.");
-  for (var i = 0; i < sheets.length; i++) {
-    var name = sheets[i].getName();
+  for (let i = 0; i < sheets.length; i++) {
+    let name = sheets[i].getName();
     if (name.substring(0, 8) == "Проверка") {
       Logger.log("Checking " + name);
-      var sheet = sheets[i];
-      var lastRow = sheet.getLastRow();
-      for (var i = 2; i < lastRow; ++i) {
+      let sheet = sheets[i];
+      let lastRow = sheet.getLastRow();
+      for (let i = 2; i < lastRow; ++i) {
         CheckLine(name, i);
       }
     }
   }
 }
 
-function CheckAnswerAll(columnIndex, rowIndex, correctAnswer) {
-  var doc = SpreadsheetApp.getActiveSpreadsheet();
-  var sheets = doc.getSheets();
+function CheckAnswerAll(columnName, rowIndex, correctAnswer) {
+  let doc = SpreadsheetApp.getActiveSpreadsheet();
+  let sheets = doc.getSheets();
   Logger.log("Got " + sheets.length + " sheets.");
-  for (var i = 0; i < sheets.length; i++) {
-    var name = sheets[i].getName();
+  for (let i = 0; i < sheets.length; i++) {
+    let name = sheets[i].getName();
     if (name.substring(0, 8) == "Проверка") {
       Logger.log("Checking " + name);
-      var sheet = sheets[i];
-      var lastRow = sheet.getLastRow();
+      let sheet = sheets[i];
+      let lastRow = sheet.getLastRow();
       answrs = sheet.getRange(1, 1, lastRow, 7).getValues();
       for (let j = 0; j < answrs.length; ++j) {
-        var line = answrs[j];
-        if (line[2] == theme && line[3] == rowIndex) {
+        let line = answrs[j];
+        if (line[2] == columnName && line[3] == rowIndex) {
+          let rangeLine = sheet.getRange(j + 1, 1, 1, 7);
           Logger.log("Check " + line[1] + " on line " + (j + 1));
           if (line[4] == correctAnswer) {
             Logger.log("Verdict: OK");
             let commandName = line[1];
-            sheet.getRange(j + 1, 1, 1, 7).setBackground("#00FF00");
-            var resultsheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(commandName);
+            rangeLine.setBackground("#00FF00");
+            let resultsheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(commandName);
             if (resultsheet == null) {
               Logger.log("Failed to find " + commandName);
-              sheet.getRange(j + 1, 1, 1, 7).setBackground("#FF000A");
-              sheet.getRange(j + 1, 1, 1, 7).getCell(1, 7).setValue("Команда не найдена!!");
+              rangeLine.setBackground("#FF000A");
+              rangeLine.getCell(1, 7).setValue("Команда не найдена!!");
             }
-            var cell = resultsheet.getRange("B3:G8").getCell(rowIndex, columnIndex + 1);
+            let cell = resultsheet.getRange("B3:G8").getCell(rowIndex, columnIndex + 1);
             cell.setValue(1);
-            sheet.getRange(j + 1, 1, 1, 7).getCell(1, 6).setDataValidation(null);
-            sheet.getRange(j + 1, 1, 1, 7).getCell(1, 6).setValue("OK");
+            rangeLine.getCell(1, 6).setDataValidation(null);
+            rangeLine.getCell(1, 6).setValue("OK");
           } else {
             Logger.log("Verdict: unknown");
-            sheet.getRange(j + 1, 1, 1, 7).setBackground("#FFA500");
-            sheet.getRange(j + 1, 1, 1, 7).getCell(1, 7).setValue(correctAnswer);
-            sheet.getRange(j + 1, 1, 1, 7).getCell(1, 6).setValue("");
-            var rule = SpreadsheetApp.newDataValidation()
+            rangeLine.setBackground("#FFA500");
+            rangeLine.getCell(1, 7).setValue(correctAnswer);
+            rangeLine.getCell(1, 6).setValue("");
+            let rule = SpreadsheetApp.newDataValidation()
               .requireValueInList(['Верно', 'Неверно'], true)
               .setAllowInvalid(false).build();
-            sheet.getRange(j + 1, 1, 1, 7).getCell(1, 6).setDataValidation(rule);
-            var cell = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Сводка").getRange("D2").getCell(1, 1);
-            var value = Number(cell.getValue());
-            cell.setValue(value + 1);
+            rangeLine.getCell(1, 6).setDataValidation(rule);
           }
         }
       }
@@ -421,20 +409,20 @@ function Kostil() {
 }
 
 function CheckOnEdit() {
-  var sheet = SpreadsheetApp.getActiveSheet();
+  let sheet = SpreadsheetApp.getActiveSheet();
   const name = sheet.getSheetName();
-  var cell = sheet.getCurrentCell();
-  var column = cell.getColumn();
-  var line_index = cell.getRow();
-  var what = ""
+  let cell = sheet.getCurrentCell();
+  let column = cell.getColumn();
+  let line_index = cell.getRow();
+  let what = ""
   if (name.substring(0, 8) == "Проверка" && column == 6) {
-    var line = sheet.getRange(line_index, 1, 1, 7);
-    var values = line.getValues();
+    let line = sheet.getRange(line_index, 1, 1, 7);
+    let values = line.getValues();
     const rowIndex = Number(values[0][3]);
-    var columnIndex = String(values[0][2]).charCodeAt(0) - 'A'.charCodeAt();
+    let columnIndex = String(values[0][2]).charCodeAt(0) - 'A'.charCodeAt();
     const commandName = values[0][1];
-    var resultsheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(commandName);
-    var res_cell = resultsheet.getRange("B3:G8").getCell(rowIndex, columnIndex + 1);
+    let resultsheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(commandName);
+    let res_cell = resultsheet.getRange("B3:G8").getCell(rowIndex, columnIndex + 1);
     if (values[0][5] == "Верно") {
       what = "1";
       line.setBackground("#00FF00");
