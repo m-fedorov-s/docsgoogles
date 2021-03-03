@@ -31,10 +31,31 @@ function CreateGameTable(sheet, columns, rowsCount) {
   sheet.getRange(2, 1, 1, columnsCaptions[0].length).setValues(columnsCaptions);
 }
 
-function ClearForm(form) {
-  for (let item of form.getItems()) {
-    form.deleteItem(item);
-  }
+function FillForm(form, teams, columns, rows) {
+  let items = form.getItems();
+  items[0].asListItem().setChoiceValues(teams);
+  items[1].asMultipleChoiceItem().setChoiceValues(columns);
+  items[2].asMultipleChoiceItem().setChoiceValues(rows);
+}
+
+function CreateForm(name) {
+  let form = FormApp.create(name);
+  forms.push(form);
+  form.addListItem()
+    .setTitle('Ваша команда:')
+    .setRequired(true);
+  form.addMultipleChoiceItem()
+    .setTitle('Выберете столбец:')
+    .showOtherOption(false)
+    .setRequired(true);
+  form.addMultipleChoiceItem()
+    .setTitle('Выберете строку:')
+    .showOtherOption(false)
+    .setRequired(true);
+  form.addTextItem()
+    .setTitle('Ваш ответ:')
+    .setRequired(true);
+  return form;
 }
 
 function Initialize() {
@@ -107,22 +128,33 @@ function Initialize() {
   formsCount = PropertiesService.getScriptProperties().getProperty("formsCount");
   if (formsCount == null) {
     Logger.log("No binded forms found.")
-    if (teams.length > 0) {
-      let form = FormApp.create('Сдача ответов для крестиков-ноликов.');
-      forms.push(form);
-      form.addListItem()
-        .setTitle('Ваша команда:')
-        .setChoiceValues(teams)
-        .setRequired(true);
+  }
+  let index = 0;
+  if (teams.length > 0) {
+    let form = null;
+    if (formsCount == null) {
+      form = CreateForm('Сдача ответов для крестиков-ноликов.');
+    } else {
+      form = FormApp.openById(PropertiesService.getScriptProperties().getProperty("formId" + index));
+      ++index;
+      Logger.log("Found form " + form.getId());
     }
-    for (let [key, value] of groups) {
-      let form = FormApp.create('Сдача ответов для крестиков-ноликов (группа ' + key + ")")
-      forms.push(form);
-      form.addListItem()
-        .setTitle('Ваша команда:')
-        .setChoiceValues(value)
-        .setRequired(true);
+    forms.push(form);
+    FillForm(form, teams, columns, rowCaptions);
+  }
+  for (let [key, value] of groups) {
+    let form = null;
+    if (formsCount == null) {
+      form = CreateForm('Сдача ответов для крестиков-ноликов (группа ' + key + ")");
+    } else {
+      form = FormApp.openById(PropertiesService.getScriptProperties().getProperty("formId" + index));
+      ++index;
+      Logger.log("Found form " + form.getId());
     }
+    forms.push(form);
+    FillForm(form, value, columns, rowCaptions);
+  }
+  if (formsCount == null) {
     Logger.log("Created " + forms.length + " forms");
     PropertiesService.getScriptProperties().setProperty("formsCount", forms.length);
     for (let index = 0; index < forms.length; ++index) {
@@ -131,34 +163,8 @@ function Initialize() {
       form.setDestination(FormApp.DestinationType.SPREADSHEET, document.getId());
     }
     Logger.log("Saved forms ids");
-  } else {
-    Logger.log("Found " + formsCount + " forms");
-    let index = 0;
-    if (teams.length > 0) {
-      let form = FormApp.openById(PropertiesService.getScriptProperties().getProperty("formId" + index));
-      ++index;
-      Logger.log("Found form " + form.getId());
-      ClearForm(form);
-      forms.push(form);
-      form.addListItem()
-        .setTitle('Ваша команда:')
-        .setChoiceValues(teams)
-        .setRequired(true);
-    }
-    for (let [key, value] of groups) {
-      let form = FormApp.openById(PropertiesService.getScriptProperties().getProperty("formId" + index));
-      ++index;
-      Logger.log("Found form " + form.getId());
-      ClearForm(form);
-      form.setTitle('Сдача ответов для крестиков-ноликов (группа ' + key + ")");
-      forms.push(form);
-      form.addListItem()
-        .setTitle('Ваша команда:')
-        .setChoiceValues(value)
-        .setRequired(true);
-    }
   }
-  for (let [key, value] of groups) {
+  for (let [_, value] of groups) {
     teams = teams.concat(value);
   }
   teams.sort();
@@ -248,22 +254,9 @@ function Initialize() {
     overview.getRange(1, 1 + i * 3).setFormula('=IMPORTRANGE("' + document.getId() + '"; "\'Сводка\'!A' + (1 + i * chank) + ':B' + ((1 + i) * chank) + '")');
   }
   Logger.log("Табличка заполнена");
-  // Заполняем формы
+  // Провязываем формы к табличке.
   for (let form of forms) {
     form.setDescription("Можно проверить координаты ячейки в табличке по ссылке " + viewer.getUrl());
-    form.addMultipleChoiceItem()
-      .setTitle('Выберете столбец:')
-      .setChoiceValues(columns)
-      .showOtherOption(false)
-      .setRequired(true);
-    form.addMultipleChoiceItem()
-      .setTitle('Выберете строку:')
-      .setChoiceValues(rowCaptions)
-      .showOtherOption(false)
-      .setRequired(true);
-    form.addTextItem()
-      .setTitle('Ваш ответ:')
-      .setRequired(true);
     Logger.log('Published form URL: ' + form.getPublishedUrl());
     Logger.log('Editor form URL: ' + form.getEditUrl());
   }
@@ -419,6 +412,9 @@ function CheckOnEdit() {
     let line = sheet.getRange(line_index, 1, 1, 7);
     let values = line.getValues();
     const rowIndex = Number(values[0][3]);
+    if (rowIndex == null) {
+      return;
+    }
     let columnIndex = String(values[0][2]).charCodeAt(0) - 'A'.charCodeAt();
     const commandName = values[0][1];
     let resultsheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(commandName);
