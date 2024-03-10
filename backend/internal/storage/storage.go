@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"reflect"
+
 	badger "github.com/dgraph-io/badger/v4"
 )
 
@@ -44,7 +46,7 @@ func (s *Storage[K, V]) Put(k K, v V) error {
 }
 
 func (s *Storage[K, V]) Get(k K) (V, error) {
-	var v V
+	var valCopy []byte
 	err := s.db.View(func(txn *badger.Txn) error {
 		keyBytes, err := k.Serialize()
 		if err != nil {
@@ -54,10 +56,32 @@ func (s *Storage[K, V]) Get(k K) (V, error) {
 		if err != nil {
 			return err
 		}
-		err = item.Value(func(val []byte) error {
-			return v.Deserialize(val)
-		})
+		valCopy, err = item.ValueCopy(nil)
 		return err
 	})
+	valueType := reflect.TypeOf((*V)(nil)).Elem().Elem()
+	v := reflect.New(valueType).Interface().(V)
+	if err != nil {
+		return v, err
+	}
+	err = v.Deserialize(valCopy)
 	return v, err
+}
+
+func (s *Storage[K, V]) Contains(k K) (bool, error) {
+	var found bool
+	err := s.db.View(func(txn *badger.Txn) error {
+		keyBytes, err := k.Serialize()
+		if err != nil {
+			return err
+		}
+		_, err = txn.Get(keyBytes)
+		if err == badger.ErrKeyNotFound {
+			found = false
+		} else {
+			found = true
+		}
+		return nil
+	})
+	return found, err
 }

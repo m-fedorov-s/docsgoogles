@@ -24,11 +24,11 @@ func main() {
 	defer cancel()
 
 	env := CreateEnvironment(ctx, workDir)
-	// answersHandler := CreateAnswersHandler(env)
+	answersHandler := CreateAnswersHandler(env)
 	settingsHandler := CreateSettingsHandler(env)
 	eventHandler := CreateEventHandler(env)
 
-	// http.HandleFunc("/answer", answersHandler)
+	http.HandleFunc("/answers", answersHandler)
 	http.HandleFunc("/settings", settingsHandler)
 	http.HandleFunc("/event", eventHandler)
 	go func(s *http.Server) {
