@@ -19,6 +19,12 @@ func CreateAnswersHandler(env *Environment) func(http.ResponseWriter, *http.Requ
 			http.Error(w, "Failed parsing payload", http.StatusBadRequest)
 			return
 		}
+		err = parsed.Validate()
+		if err != nil {
+			Logger.Error("Error validating payload", "error", fmt.Sprint(err))
+			http.Error(w, fmt.Sprintf("Maformed: %v", err), http.StatusBadRequest)
+			return
+		}
 		key := SettingsKey(parsed.GameID)
 		existing, err := env.SettingsDB.Contains(&key)
 		if err != nil {
@@ -30,6 +36,12 @@ func CreateAnswersHandler(env *Environment) func(http.ResponseWriter, *http.Requ
 			http.Error(w, "game not found", http.StatusNotFound)
 			return
 		}
+		settings, err := env.SettingsDB.Get(&key)
+		if err != nil {
+			Logger.Error("Unexpected error in DB", "error", fmt.Sprint(err))
+			http.Error(w, "error", http.StatusInternalServerError)
+			return
+		}
 		records := make(map[uint]*VariantAnswers)
 		for _, r := range parsed.Records {
 			_, ok := records[r.Variant]
@@ -38,7 +50,8 @@ func CreateAnswersHandler(env *Environment) func(http.ResponseWriter, *http.Requ
 					Answers: make(map[AnswerKey]string),
 				}
 			}
-			records[r.Variant].Answers[r.Key] = r.Data
+			answerKey := ConvertKey(r.Key, settings)
+			records[r.Variant].Answers[answerKey] = r.Data
 		}
 		Logger.Info("Merged answers", "answers", fmt.Sprint(records))
 		for variant, r := range records {
@@ -79,5 +92,12 @@ func CreateAnswersHandler(env *Environment) func(http.ResponseWriter, *http.Requ
 			}
 		}
 		w.WriteHeader(http.StatusAccepted)
+	}
+}
+
+func ConvertKey(key AnswerKeyMessage, settings *Settings) AnswerKey {
+	return AnswerKey{
+		ColumnIndex: 1,
+		RowIndex:    1,
 	}
 }

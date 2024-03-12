@@ -1,14 +1,13 @@
 FROM golang:latest as build
 
-WORKDIR /build
+WORKDIR /src
 
-COPY . .
+COPY backend .
 
 # Download all dependencies
-RUN go get -d -v && CGO_ENABLED=0 go build -o server.bin
+RUN go get -d -v && CGO_ENABLED=0 go build -o /app/server.bin
 
-FROM alpine:latest
+FROM scratch
 
-COPY --from=build /build/server.bin /app/server.bin
-COPY credentials /app/credentials/
-CMD ["/app/server.bin", "--cert", "/app/credentials/aws_public.pem", "--key", "/app/credentials/aws_cloud.key", "--workDir", "/app/data"]
+COPY --from=build /app/server.bin /app/server.bin
+CMD ["/app/server.bin", "--cert", "/secrets/cert.pem", "--key", "/secrets/cert.key", "--workDir", "/data"]
