@@ -2,7 +2,7 @@ FROM golang:latest as build
 
 WORKDIR /src
 
-COPY backend .
+COPY . .
 
 # Download all dependencies
 RUN go get -d -v && CGO_ENABLED=0 go build -o /app/server.bin

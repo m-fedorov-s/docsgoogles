@@ -6,7 +6,7 @@ on:
       branch:
         description: 'Branch to build from'
         required: true
-        default: 'main' # Adjust the default branch if needed
+        default: 'master'
 
 jobs:
   build-and-package:
@@ -14,21 +14,17 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: cd
-        run: cd ./backend/
-
-      - name: Build Go package
-        run: go build -o server . -t server
+      - name: Build Docker image
+        run: cd ./backend/ && docker build -t server .
 
       - name: Package into tar file
-        run: tar -czf server.tar.gz server
-        # Adjust "yourapp" to the name of your Go executable
+        run:  docker save --output="server.tar" server
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
           name: tar docker image
-          path: server.tar.gz
+          path: server.tar
 
