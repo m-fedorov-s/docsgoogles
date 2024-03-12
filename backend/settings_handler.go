@@ -29,7 +29,13 @@ func CreateSettingsHandler(env *Environment) func(http.ResponseWriter, *http.Req
 					http.Error(w, "Error", http.StatusInternalServerError)
 				} else {
 					w.WriteHeader(http.StatusOK)
-					w.Write([]byte(fmt.Sprintf("%+v", settings)))
+					answer, err := DumpSettingsToJson(settings)
+					if err != nil {
+						Logger.Error("Error dumping to json", "error", fmt.Sprint(err))
+						http.Error(w, "Error", http.StatusInternalServerError)
+						return
+					}
+					w.Write([]byte(answer))
 				}
 			} else {
 				http.Error(w, fmt.Sprintf("Error reading body: %v", err), http.StatusBadRequest)
@@ -49,8 +55,13 @@ func CreateSettingsHandler(env *Environment) func(http.ResponseWriter, *http.Req
 			return
 		}
 		key := SettingsKey(parsed.ID)
-		env.SettingsDB.Put(&key, &parsed)
+		err = env.SettingsDB.Put(&key, &parsed)
+		if err != nil {
+			Logger.Error("Unexpected DB error", "error", fmt.Sprint(err))
+			http.Error(w, "Error", http.StatusInternalServerError)
+			return
+		}
 		Logger.Info(fmt.Sprintf("Saved %v under key %v", parsed, key), "gameID", key)
-		w.WriteHeader(http.StatusAccepted)
+		w.WriteHeader(http.StatusNoContent)
 	}
 }

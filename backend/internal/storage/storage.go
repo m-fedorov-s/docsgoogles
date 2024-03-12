@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"fmt"
 	"reflect"
 
 	badger "github.com/dgraph-io/badger/v4"
@@ -30,6 +31,9 @@ func (s *Storage[K, V]) Close() {
 }
 
 func (s *Storage[K, V]) Put(k K, v V) error {
+	if s.db == nil {
+		return fmt.Errorf("Storage[%T, %T] is not initialized", k, v)
+	}
 	err := s.db.Update(func(txn *badger.Txn) error {
 		keyBytes, err := k.Serialize()
 		if err != nil {
@@ -46,6 +50,10 @@ func (s *Storage[K, V]) Put(k K, v V) error {
 }
 
 func (s *Storage[K, V]) Get(k K) (V, error) {
+	if s.db == nil {
+		var v V
+		return v, fmt.Errorf("Storage[%T, %T] is not initialized", k, v)
+	}
 	var valCopy []byte
 	err := s.db.View(func(txn *badger.Txn) error {
 		keyBytes, err := k.Serialize()
@@ -69,6 +77,10 @@ func (s *Storage[K, V]) Get(k K) (V, error) {
 }
 
 func (s *Storage[K, V]) Contains(k K) (bool, error) {
+	if s.db == nil {
+		var v V
+		return false, fmt.Errorf("Storage[%T, %T] is not initialized", k, v)
+	}
 	var found bool
 	err := s.db.View(func(txn *badger.Txn) error {
 		keyBytes, err := k.Serialize()

@@ -5,9 +5,8 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
-	"log/slog"
+	"strings"
 )
 
 type GameType int
@@ -60,10 +59,14 @@ func ParseSettingsFromJson(input io.Reader) (Settings, error) {
 	dec := json.NewDecoder(input)
 	dec.DisallowUnknownFields()
 	err := dec.Decode(&r)
-	if err != nil {
-		slog.Warn("Error decoding settings.", "error", fmt.Sprint(err))
-	}
 	return r, err
+}
+
+func DumpSettingsToJson(s *Settings) (string, error) {
+	var buf strings.Builder
+	dec := json.NewEncoder(&buf)
+	err := dec.Encode(s)
+	return buf.String(), err
 }
 
 func (s *Settings) Validate() error {
