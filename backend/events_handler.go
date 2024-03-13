@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"sort"
 )
 
 func CreateEventHandler(env *Environment) func(http.ResponseWriter, *http.Request) {
@@ -55,19 +56,66 @@ func CreateEventHandler(env *Environment) func(http.ResponseWriter, *http.Reques
 			http.Error(w, "row not found", http.StatusBadRequest)
 			return
 		}
-		answerKey := AnswerKey{
+		problemKey := ProblemKey{
 			ColumnIndex: uint(columnIndex),
 			RowIndex:    uint(rowIndex),
 		}
-		expected, found := answers.Answers[answerKey]
+		expected, found := answers.Answers[problemKey]
 		if !found {
 			http.Error(w, "answer not found", http.StatusNotFound)
 			return
 		}
+		teamKey := TeamResultKey{
+			GameID:   event.GameID,
+			TeamName: event.TeamName,
+		}
+		exists, err := env.ResultsDB.Contains(&teamKey)
+		if err != nil {
+			Logger.Error("Error in DB", "error", err)
+			http.Error(w, "error", http.StatusInternalServerError)
+			return
+		}
+		var history *TeamResult
+		if exists {
+			history, err = env.ResultsDB.Get(&teamKey)
+			if err != nil {
+				Logger.Error("Error in DB", "error", err)
+				http.Error(w, "error", http.StatusInternalServerError)
+				return
+			}
+		} else {
+			history = &TeamResult{
+				Submissions: make(map[ProblemKey]([]Record)),
+			}
+		}
+		_, ok := history.Submissions[problemKey]
+		if !ok {
+			history.Submissions[problemKey] = make([]Record, 0)
+		}
+		var (
+			shouldAccept bool
+			message      string
+		)
+		if len(history.Submissions[problemKey]) == 0 || history.Submissions[problemKey][0].Timestamp.After(*event.Timestamp) {
+			shouldAccept = expected == event.Answer
+			if shouldAccept {
+				message = CORRECT
+			} else {
+				message = WRONG
+			}
+		} else {
+			shouldAccept = false
+			message = NOT_FIRST_SUBMISSION
+		}
+		history.Submissions[problemKey] = append(history.Submissions[problemKey], Record{Timestamp: *event.Timestamp, Answer: event.Answer})
+		sort.Slice(history.Submissions[problemKey], func(i, j int) bool {
+			return history.Submissions[problemKey][i].Timestamp.Before(history.Submissions[problemKey][j].Timestamp)
+		})
+		env.ResultsDB.Put(&teamKey, history)
 		result := CheckResponse{
-			IsCorrect:      expected == event.Answer,
-			Message:        "",
-			ExpectedAnswer: answers.Answers[answerKey],
+			Accepted:       shouldAccept,
+			Message:        message,
+			ExpectedAnswer: expected,
 		}
 		data, err := result.ToJson()
 		if err != nil {

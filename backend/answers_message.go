@@ -7,7 +7,7 @@ import (
 	"log/slog"
 )
 
-type AnswerKey struct {
+type ProblemKey struct {
 	ColumnIndex uint
 	RowIndex    uint
 }

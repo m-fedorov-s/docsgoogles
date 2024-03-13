@@ -37,19 +37,19 @@ func (k *VariantKey) Deserialize(data []byte) error {
 	return err
 }
 
-type CheckRequestKey struct {
-	GameID    GameID
-	RequestID uint
+type TeamResultKey struct {
+	GameID   GameID
+	TeamName string
 }
 
-func (k CheckRequestKey) Serialize() ([]byte, error) {
+func (k TeamResultKey) Serialize() ([]byte, error) {
 	var buf bytes.Buffer
 	encoder := gob.NewEncoder(&buf)
 	err := encoder.Encode(k)
 	return buf.Bytes(), err
 }
 
-func (k *CheckRequestKey) Deserialize(data []byte) error {
+func (k *TeamResultKey) Deserialize(data []byte) error {
 	buf := bytes.NewBuffer(data)
 	decoder := gob.NewDecoder(buf)
 	err := decoder.Decode(k)

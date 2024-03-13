@@ -48,7 +48,7 @@ func CreateAnswersHandler(env *Environment) func(http.ResponseWriter, *http.Requ
 			_, ok := records[r.Variant]
 			if !ok {
 				records[r.Variant] = &VariantAnswers{
-					Answers: make(map[AnswerKey]string),
+					Answers: make(map[ProblemKey]string),
 				}
 			}
 			answerKey, err := ConvertKey(r.Key, settings)
@@ -82,7 +82,7 @@ func CreateAnswersHandler(env *Environment) func(http.ResponseWriter, *http.Requ
 					return
 				}
 				if old.Answers == nil {
-					old.Answers = make(map[AnswerKey]string)
+					old.Answers = make(map[ProblemKey]string)
 				}
 				for answerKey, data := range r.Answers {
 					old.Answers[answerKey] = data
@@ -99,7 +99,7 @@ func CreateAnswersHandler(env *Environment) func(http.ResponseWriter, *http.Requ
 	}
 }
 
-func ConvertKey(key AnswerKeyMessage, settings *Settings) (*AnswerKey, error) {
+func ConvertKey(key AnswerKeyMessage, settings *Settings) (*ProblemKey, error) {
 	var columnIdx, rowIdx int
 	if key.ColumnIndex != nil {
 		columnIdx = int(*key.ColumnIndex)
@@ -123,7 +123,7 @@ func ConvertKey(key AnswerKeyMessage, settings *Settings) (*AnswerKey, error) {
 	if rowIdx >= len(settings.RowNames) {
 		return nil, fmt.Errorf("Row index out of range")
 	}
-	return &AnswerKey{
+	return &ProblemKey{
 		ColumnIndex: uint(columnIdx),
 		RowIndex:    uint(rowIdx),
 	}, nil

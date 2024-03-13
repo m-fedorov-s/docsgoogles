@@ -28,7 +28,7 @@ const (
 )
 
 type VariantAnswers struct {
-	Answers map[AnswerKey]string
+	Answers map[ProblemKey]string
 }
 
 func (s VariantAnswers) Serialize() ([]byte, error) {

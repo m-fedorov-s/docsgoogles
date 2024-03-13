@@ -11,6 +11,7 @@ import (
 type CheckRequest struct {
 	GameID     GameID
 	Timestamp  *time.Time
+	RequestId  string
 	MailHash   string
 	TeamName   string
 	ColumnName string
@@ -19,7 +20,7 @@ type CheckRequest struct {
 }
 
 type CheckResponse struct {
-	IsCorrect      bool
+	Accepted       bool
 	Message        string
 	ExpectedAnswer string
 }
