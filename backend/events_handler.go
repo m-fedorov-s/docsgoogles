@@ -16,7 +16,11 @@ func CreateEventHandler(env *Environment) func(http.ResponseWriter, *http.Reques
 			http.Error(w, "Failed parsing payload", http.StatusBadRequest)
 			return
 		}
-		Logger.Info("Incoming event", "event", fmt.Sprint(event))
+		err = event.Validate()
+		if err != nil {
+			http.Error(w, fmt.Sprint(err), http.StatusBadRequest)
+			return
+		}
 		settingsKey := SettingsKey(event.GameID)
 		settings, err := env.SettingsDB.Get(&settingsKey)
 		if err != nil {
@@ -43,23 +47,34 @@ func CreateEventHandler(env *Environment) func(http.ResponseWriter, *http.Reques
 		Logger.Info("got answers", "answers", fmt.Sprint(answers))
 		columnIndex := slices.Index(settings.ColumnNames, event.ColumnName)
 		if columnIndex < 0 {
-			http.Error(w, "bad column name", http.StatusBadRequest)
+			http.Error(w, "column not found", http.StatusBadRequest)
 			return
 		}
 		rowIndex := slices.Index(settings.RowNames, event.RowName)
 		if rowIndex < 0 {
-			http.Error(w, "ban row name", http.StatusBadRequest)
+			http.Error(w, "row not found", http.StatusBadRequest)
 			return
 		}
 		answerKey := AnswerKey{
 			ColumnIndex: uint(columnIndex),
 			RowIndex:    uint(rowIndex),
 		}
-		if answers.Answers[answerKey] == event.Answer {
-			w.Write([]byte("correct"))
-		} else {
-			w.Write([]byte("wrong"))
+		expected, found := answers.Answers[answerKey]
+		if !found {
+			http.Error(w, "answer not found", http.StatusNotFound)
+			return
 		}
-		w.WriteHeader(http.StatusOK)
+		result := CheckResponse{
+			IsCorrect:      expected == event.Answer,
+			Message:        "",
+			ExpectedAnswer: answers.Answers[answerKey],
+		}
+		data, err := result.ToJson()
+		if err != nil {
+			Logger.Error("Error serializing to json", "error", fmt.Sprint(err))
+			http.Error(w, "error", http.StatusInternalServerError)
+			return
+		}
+		w.Write([]byte(data))
 	}
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"slices"
 )
 
 func CreateAnswersHandler(env *Environment) func(http.ResponseWriter, *http.Request) {
@@ -50,10 +51,13 @@ func CreateAnswersHandler(env *Environment) func(http.ResponseWriter, *http.Requ
 					Answers: make(map[AnswerKey]string),
 				}
 			}
-			answerKey := ConvertKey(r.Key, settings)
-			records[r.Variant].Answers[answerKey] = r.Data
+			answerKey, err := ConvertKey(r.Key, settings)
+			if err != nil {
+				http.Error(w, fmt.Sprint(err), http.StatusBadRequest)
+				return
+			}
+			records[r.Variant].Answers[*answerKey] = r.Data
 		}
-		Logger.Info("Merged answers", "answers", fmt.Sprint(records))
 		for variant, r := range records {
 			key := VariantKey{
 				GameID:  parsed.GameID,
@@ -95,9 +99,32 @@ func CreateAnswersHandler(env *Environment) func(http.ResponseWriter, *http.Requ
 	}
 }
 
-func ConvertKey(key AnswerKeyMessage, settings *Settings) AnswerKey {
-	return AnswerKey{
-		ColumnIndex: 1,
-		RowIndex:    1,
+func ConvertKey(key AnswerKeyMessage, settings *Settings) (*AnswerKey, error) {
+	var columnIdx, rowIdx int
+	if key.ColumnIndex != nil {
+		columnIdx = int(*key.ColumnIndex)
+	} else {
+		columnIdx = slices.Index(settings.ColumnNames, *key.ColumnName)
 	}
+	if columnIdx < 0 {
+		return nil, fmt.Errorf("Unknown column name")
+	}
+	if columnIdx >= len(settings.ColumnNames) {
+		return nil, fmt.Errorf("Column index out of range")
+	}
+	if key.RowIndex != nil {
+		rowIdx = int(*key.RowIndex)
+	} else {
+		rowIdx = slices.Index(settings.RowNames, *key.RowName)
+	}
+	if rowIdx < 0 {
+		return nil, fmt.Errorf("Unknown row name")
+	}
+	if rowIdx >= len(settings.RowNames) {
+		return nil, fmt.Errorf("Row index out of range")
+	}
+	return &AnswerKey{
+		ColumnIndex: uint(columnIdx),
+		RowIndex:    uint(rowIdx),
+	}, nil
 }
