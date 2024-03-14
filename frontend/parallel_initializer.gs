@@ -33,7 +33,6 @@ function ReadConfigParallel(document) {
           result["columns"].push(String(line[index]).trim());
         }
       }
-      Logger.log("Got " + result["columns"].length + " cols");
     } else if (line[0] == "Строки") {
       result["rows"] = [];
       if (line.length == 2 || String(line[2]) == "") {
@@ -49,13 +48,11 @@ function ReadConfigParallel(document) {
           result["rows"].push(String(line[index]).trim());
         }
       }
-      Logger.log("Got " + result["rows"].length + " rows");
     } else if (line[0] == "Количество команд") {
       let teamsCount = Number(line[1]);
       for (let i = 1; i < teamsCount + 1; ++i) {
         result["teams"].push("Команда "  + i);
       }
-      Logger.log("Got " + result["teams"].length + " teams");
     } else if (line[0] == "Название игры") {
       result["gameName"] = line[1];
     } else if (line[0] == "Собирать email") {
@@ -107,7 +104,7 @@ function FillAbakaTransposedFormulas(sheet, width, heigth) {
 }
 
 function FillForm(form, teams, rows, columns, collectMails) {
-  var textValidation = FormApp.createTextValidation()
+  let textValidation = FormApp.createTextValidation()
   .setHelpText('Название команды не найдено. Регистр букв и пробелы важны!')
   .requireTextMatchesPattern("(" + teams.join("|") + ")")
   .build();
@@ -138,7 +135,7 @@ function CreateForm(baseDocument, name, collectMails) {
 
 function CreateAnswersSheet(document, rows, columns, variantNames) {
   // Создаем лист с ответами.
-  var answers = document.getSheetByName("_ответы");
+  let answers = document.getSheetByName("_ответы");
   if (answers == null) {
     answers = document.insertSheet();
     answers.setName("_ответы");
@@ -172,6 +169,53 @@ function CreateAnswersSheet(document, rows, columns, variantNames) {
   answers.getRange(3, 3, columns.length * rows.length, Math.max(variantNames.length, 1)).setNumberFormat("@");
   answers.autoResizeColumns(1, 2 + Math.max(numColumns, 1));
   Logger.log("CreateAnswersSheet::finished");
+}
+
+function PushAnswersToServer(document, rows, columns, variantNames) {
+  // Создаем лист с ответами.
+  let answers = document.getSheetByName("_ответы");
+  if (answers == null) {
+    Logger.log("Error sending answers to server: no answers sheet found.")
+    return;
+  }
+
+  var answersData;
+  if (variantNames.length > 0) {
+    answersData = answers.getRange(3, 3, rows.length * columns.length, Math.max(variantNames.length, 1)).getValues();
+  } else {
+    answersData = answers.getRange(2, 3, rows.length * columns.length, Math.max(variantNames.length, 1)).getValues();
+  }
+  let answersPayload = {
+    "GameID": document.getId(),
+    "Records": [],
+  }
+  let index = 0; 
+  for (let i = 0; i < columns.length; ++i) {
+    for (let j = 0; j < rows.length; ++j) {
+      for (let varIndex = 0; varIndex < Math.max(variantNames.length, 1); ++varIndex) {
+        answersPayload.Records.push({
+          "Variant": varIndex,
+          "Key": {
+            "ColumnIndex": i,
+            "RowIndex": j,
+          },
+          "Data": answersData[index][varIndex]
+        });
+      }
+      ++index;
+    }
+  }
+  let options = {
+    'method': 'POST',
+    'contentType': 'application/json',
+    'payload': JSON.stringify(answersPayload),
+    'validateHttpsCertificates': false,
+    'muteHttpExceptions': true,
+  };
+  let response = UrlFetchApp.fetch(SET_ANSWERS_ENDPOINT, options);
+  if (!IsHttpOk(response.getResponseCode())) {
+    Logger.log("Error sending answers to server: " + response.getContentText() + ", code=" + response.getResponseCode());
+  }
 }
 
 function BackgroundSheetManager(event) {
@@ -327,6 +371,35 @@ function InitializeParallel(document) {
     DeleteHidden(document);
   }
   let config = ReadConfigParallel(document);
+  let teamMap = {};
+  for (let teamName of config.teams) {
+    teamMap[teamName] = 0;
+  }
+  for (let variantIndex = 0; variantIndex < config.groups.length; ++variantIndex) {
+    let groupTeams = config.groups[variantIndex];
+    for (let teamName of groupTeams) {
+      teamMap[teamName] = variantIndex;
+    }
+  }
+  let gameType = PropertiesService.getScriptProperties().getProperty(documentId + "gameType");
+  let update = {
+    "ID":documentId,
+    "Type":GameTypeToInt(gameType),
+    "Name":config.gameName,
+    "Teams":teamMap,
+    "ColumnNames":config.columns,
+    "RowNames":config.rows,
+  };
+  Logger.log(JSON.stringify(update));
+  let options = {
+    'method': 'POST',
+    'contentType': 'application/json',
+    'payload': JSON.stringify(update),
+    'validateHttpsCertificates': false,
+    'muteHttpExceptions': true,
+  };
+  let response = UrlFetchApp.fetch(SET_SETTINGS_ENDPOINT, options);
+  Logger.log(response.getContentText());
   let updatedProperties = {};
   updatedProperties[documentId + 'secondAnswerPolicy'] = config["secondAnswer"];
   Logger.log("Columns are " + config.columns);
@@ -362,6 +435,7 @@ function InitializeParallel(document) {
 
   FillForm(form, config.teams, config.rows, config.columns, config.collectMails);
   CreateAnswersSheet(document, config.rows, config.columns, variants);
+  PushAnswersToServer(document, config.rows, config.columns, variants);
   Logger.log("Зарегестрировано " + config.teams.length + " команд.");
 
   // Создаем табличку с просмотром результатов.

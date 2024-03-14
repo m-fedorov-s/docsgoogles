@@ -42,7 +42,45 @@ function GetCorrectAnswer(document, variantIndex, columnIndex, rowIndex) {
   return document.getSheetByName("_ответы").getRange(answerIndex + 1, variantIndex + 3).getValue();
 }
 
-function CheckLine(sheet, index, override, values=null, properties=null) {
+function DisplayCheckResult(line, background="", status="", actions=[], message="") {
+  line.setNumberFormat("@");
+  if (background != "") {
+    line.setBackground(background);
+  }
+  let cell = line.getCell(1, 7);
+  cell.setDataValidation(null);
+  if (status != "" && (actions.length == 0 || actions.includes(status))) {
+    cell.setValue(status);
+  }
+  if (actions.length > 0) {
+    let rule = SpreadsheetApp.newDataValidation()
+        .requireValueInList(actions, true)
+        .setAllowInvalid(false).build();
+    cell.setDataValidation(rule);
+  } else {
+    cell.setDataValidation(null);
+  }
+  if (message != "") {
+    line.getCell(1, 8).setValue(message);
+  }
+}
+
+function UpdateProblemScore(document, teamName, eventIndex, rowIndex, columnIndex, score) {
+  let resultsheet = document.getSheetByName(teamName);
+  if (resultsheet == null) {
+    Logger.log("ERROR: Failed to find " + teamName);
+    return false;
+  }
+  let cell = resultsheet.getRange(rowIndex + 3, columnIndex + 2);
+  let indexWas = cell.getNote();
+  if (indexWas == "" || Number(indexWas) > eventIndex) {
+    cell.setNote(eventIndex);
+  }
+  cell.setValue(score);
+  return true;
+}
+
+function CheckLine(sheet, index, override, values=null, properties=null, correctAnswer=null, score=null) {
   Logger.log("Cheching row " + index + " of sheet " + sheet.getName());
   if (properties == null) {
     properties = PropertiesService.getScriptProperties();
@@ -57,30 +95,28 @@ function CheckLine(sheet, index, override, values=null, properties=null) {
   const columnIndex = GetColumnIndex(documentId, values[3], props=properties);
   const rowIndex = GetRowIndex(documentId, values[4], props=properties);
   const variantIndex = GetVariantIndex(documentId, teamName, props=properties);
-  let correctAnswer = properties.getProperty(documentId + variantIndex + values[3] + values[4]);
   if (correctAnswer == null) {
     correctAnswer = GetCorrectAnswer(sheet.getParent(), variantIndex, columnIndex, rowIndex);
-    properties.setProperty(documentId + variantIndex + values[3] + values[4], correctAnswer);
   }
   const answer = String(values[5]).trim();
 
   let comment = values[6];
-  let score;
-  let gameType = properties.getProperty(documentId + "gameType");
-  if (gameType == GAME_ABAKA) {
-    score = (rowIndex + 1) * 10;
-  } else if (gameType == GAME_ABAKA_TRANSPOSED) {
-    score = (columnIndex + 1) * 10;
-  } else if (gameType == GAME_KRESTIKI) {
-    score = 1;
-  } else {
-    Logger.log("Warning! Game type " + gameType + " is unknown.");
+  if (score == null) {
+    let gameType = properties.getProperty(documentId + "gameType");
+    if (gameType == GAME_ABAKA) {
+      score = (rowIndex + 1) * 10;
+    } else if (gameType == GAME_ABAKA_TRANSPOSED) {
+      score = (columnIndex + 1) * 10;
+    } else if (gameType == GAME_KRESTIKI) {
+      score = 1;
+    } else {
+      Logger.log("Warning! Game type " + gameType + " is unknown.");
+    }
   }
   let resultsheet = sheet.getParent().getSheetByName(teamName);
   if (resultsheet == null) {
     Logger.log("Failed to find " + teamName);
-    line.setBackground("#FF000A");
-    line.getCell(1, 8).setValue("Команда не найдена!!");
+    DisplayCheckResult(line, backgound="#FF000A", status="", actions=[], message="Команда не найдена!!");
     return;
   }
 
@@ -90,7 +126,7 @@ function CheckLine(sheet, index, override, values=null, properties=null) {
   if (newer) {
     cell.setNote(index);
   }
-  Logger.log("Override: " + override + ", index was " + indexWas + ", index now is " + index + ", score=" + score + ", gameType=" + gameType);
+  Logger.log("Override: " + override + ", index was " + indexWas + ", index now is " + index + ", score=" + score);
 
   let secondAnswerPolicy = properties.getProperty(documentId + 'secondAnswerPolicy');
   if (!newer && !override) {
@@ -98,19 +134,10 @@ function CheckLine(sheet, index, override, values=null, properties=null) {
       sheet.hideRows(index);
       return;
     } else if (secondAnswerPolicy == SECOND_ANSWER_MARK) {
-      line.setBackground("#FF706A");
-      line.getCell(1, 7).setDataValidation(null)
-                        .setValue("ПОВТОР (не зачтено)");
-      line.getCell(1, 8).setValue("см строку " + indexWas);
+      DisplayCheckResult(line, background="#FF706A", status="ПОВТОР (не зачтено)", actions=[], message="см строку " + indexWas);
       return;
     } else if (secondAnswerPolicy == SECOND_ANSWER_ALLOW) {
-      Logger.log("There is something in the result cell already..")
-      line.setBackground("#FFA07A");
-      let rule = SpreadsheetApp.newDataValidation()
-        .requireValueInList(['Пропустить', 'Верно', 'Неверно'], true)
-        .setAllowInvalid(false).build();
-      line.getCell(1, 7).setDataValidation(rule);
-      line.getCell(1, 8).setValue("Повторная отправка? (см строку " + indexWas + ")");
+      DisplayCheckResult(line, background="#FFA07A", status="", actions=['Пропустить', 'Верно', 'Неверно'], message="Повторная отправка? (см строку " + indexWas + ")");
       return;
     } else {
       Logger.log("Unknown second answer policy '" + secondAnswerPolicy + "'");
@@ -136,11 +163,7 @@ function CheckLine(sheet, index, override, values=null, properties=null) {
     } else {
       msg = "Верно";
     }
-    line.setBackground("#00FF00")
-        .setNumberFormat("@").getCell(1, 7)
-                             .setDataValidation(null)
-                             .setValue(msg);
-    line.getCell(1, 8).setNumberFormat("@").setValue(correctAnswer);
+    DisplayCheckResult(line, background="#00FF00", status=msg, actions=[], message=correctAnswer);
   } else if (comment.startsWith("Неверно")) {
     Logger.log("Incorrect");
     cell.setValue(0);
@@ -150,61 +173,82 @@ function CheckLine(sheet, index, override, values=null, properties=null) {
     } else {
       msg = "Неверно";
     }
-    line.setBackground("#D0FA58")
-        .setNumberFormat("@").getCell(1, 7)
-                             .setDataValidation(null)
-                             .setValue(msg);
-    line.getCell(1, 8).setNumberFormat("@").setValue(correctAnswer);
+    DisplayCheckResult(line, background="#D0FA58", status=msg, actions=[], message=correctAnswer);
   } else if (IsInteger(answer) && IsInteger(correctAnswer)) {
     Logger.log("Almost shurely incorrect");
     cell.setValue(0);
-    line.setBackground("#E07070")
-        .setNumberFormat("@").getCell(1, 7)
-                             .setDataValidation(null)
-                             .setValue("Неверно (числа)");
-    line.getCell(1, 8).setNumberFormat("@").setValue(correctAnswer);
+    DisplayCheckResult(line, background="#E07070", status="Неверно (числа)", actions=[], message=correctAnswer);
   } else if (IsFraction(correctAnswer) && IsFraction(answer)) {
     Logger.log("Comparing fractions");
     let fracCorrect = StringToFraction(correctAnswer);
     let fracGiven = StringToFraction(answer);
     if (fracCorrect.numerator * fracGiven.denominator == fracGiven.numerator * fracCorrect.denominator) {
       cell.setValue(score);
-      line.setBackground("#fff750")
-          .setNumberFormat("@").getCell(1, 7)
-                               .setDataValidation(null)
-                               .setValue("Верно (дроби)");
-      line.getCell(1, 8).setNumberFormat("@").setValue(correctAnswer);
+      DisplayCheckResult(line, background="#fff750", status="Верно (дроби)", actions=[], message=correctAnswer);
     } else {
       cell.setValue(0);
-      line.setBackground("#E07070")
-          .setNumberFormat("@").getCell(1, 7)
-                               .setDataValidation(null)
-                               .setValue("Неверно (дроби)");
-      line.getCell(1, 8).setNumberFormat("@").setValue(correctAnswer);
+      DisplayCheckResult(line, background="#E07070", status="Неверно (дроби)", actions=[], message=correctAnswer);
     }
   } else {
     Logger.log("Waiting for manual check.")
     cell.setValue("⏳");
-
-    line.setBackground("#FFA500")
-        .setNumberFormat("@").getCell(1, 8)
-                             .setNumberFormat("@")
-                             .setValue(correctAnswer);
-    let rule = SpreadsheetApp.newDataValidation()
-        .requireValueInList(['Неверно', 'Верно'], true)
-        .setAllowInvalid(false).build();
-    line.getCell(1, 7).setDataValidation(rule);
+    DisplayCheckResult(line, background="#FFA500", status="Ожидает проверки", actions=['Неверно', 'Верно'], message=correctAnswer);
   }
 }
 
 function CheckNewLine(event) {
   let sheet = event.range.getSheet();
+  // Using format "DD.MM.YYYY hh:mm:ss"
+  let parts = event.values[0].split(" ");
+  let dateParts = parts[0].split(".");
+  let timeParts = parts[1].split(":");
+  let date = new Date(Number(dateParts[2]), Number(dateParts[1]) - 1, Number(dateParts[0]), Number(timeParts[0]), Number(timeParts[1]), Number(timeParts[2]));
+  let payload = {
+    "GameID": sheet.getParent().getId(),
+    "Timestamp": date.toISOString(),
+    "MailHash": Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, event.values[1])),
+    "TeamName": event.values[2],
+    "ColumnName": event.values[3],
+    "RowName": event.values[4],
+    "Answer": event.values[5],
+  }
+  let options = {
+    'method': 'POST',
+    'contentType': 'application/json',
+    'payload': JSON.stringify(payload),
+    'validateHttpsCertificates': false,
+    'muteHttpExceptions': true,
+  };
+  let response = UrlFetchApp.fetch(CHECK_A_ENDPOINT, options);
+  var checkResult;
+  if (!IsHttpOk(response.getResponseCode())) {
+    Logger.log("Response with error: code=" + response.getResponseCode() + ", data=" + response.getContentText());
+  } else {
+    checkResult = JSON.parse(response.getContentText()); 
+  }
   let row = event.range.getRow();
   Logger.log("values=" + event.values);
   Logger.log("Got sheet " + sheet.getName() + " at row " + row);
+  let properties = PropertiesService.getScriptProperties();
   let values = event.values
   values.push("")
-  CheckLine(sheet, row, null, values=values);
+  if (checkResult != null && checkResult.Accepted) {
+    Logger.log("Updating scores using server response: " + response.getContentText());
+    let documentId = sheet.getParent().getId();
+    const columnIndex = GetColumnIndex(documentId, values[3], props=properties);
+    const rowIndex = GetRowIndex(documentId, values[4], props=properties);
+    let ok = UpdateProblemScore(sheet.getParent(), values[2], row, rowIndex, columnIndex, checkResult.Value);
+    let line = sheet.getRange(row, 1, 1, 8);
+    if (!ok) {
+      DisplayCheckResult(line, backgound="#FF000A", status="", actions=[], message="Команда не найдена");
+    } else {
+      DisplayCheckResult(line, backgound="#00FF00", status=checkResult.Message, actions=[], message=checkResult.ExpectedAnswer);
+    }
+  } else if (checkResult != null) {
+    CheckLine(sheet, row, null, values=values, properties=properties, correctAnswer=checkResult.ExpectedAnswer, score=checkResult.Value);
+  } else {
+    CheckLine(sheet, row, null, values=values, properties=properties);
+  }
 }
 
 function CheckOnEditParallel(event) {
@@ -256,6 +300,28 @@ function CheckOnEditParallel(event) {
       let columnName = sheet.getRange(lineIndex, 1).getValue();
       let rowName = sheet.getRange(lineIndex, 2).getValue();
       properties.setProperty(documentId + variantIndex + columnName + rowName, range.getValue());
+      let payload = {
+        "GameID": documentId,
+        "Records": [{
+          "Variant": variantIndex,
+          "Key": {
+            "ColumnName": columnName,
+            "RowName": rowName,
+          },
+          "Data": range.getValue(),
+        }],
+      };
+      let options = {
+        'method': 'POST',
+        'contentType': 'application/json',
+        'payload': JSON.stringify(payload),
+        'validateHttpsCertificates': false,
+        'muteHttpExceptions': true,
+      };
+      let response = UrlFetchApp.fetch(SET_ANSWERS_ENDPOINT, options);
+      if (!IsHttpOk(response.getResponseCode())) {
+        Logger.log("Response error: code=" + response.getResponseCode() + ", data=" + response.getContentText());
+      }
       Logger.log("Save answer for variant=" + variantIndex + ", " + columnName + ", " + rowName);
       sheet.getRange(lineIndex, variants + 3, 1, 1).setValue("Изменено");
     }
@@ -299,6 +365,7 @@ function RecheckProblem(document, columnName, lineName) {
 }
 
 function RecheckTeams(document, teams=[], startFrom=2) {
+  let properties = PropertiesService.getScriptProperties();
   Logger.log("Recheck teams = " + teams);
   let sheet = document.getSheetByName("Проверка");
   if (sheet.getLastRow() > 1) {
@@ -306,18 +373,10 @@ function RecheckTeams(document, teams=[], startFrom=2) {
     for (let i = startFrom - 2; i < lines.length; ++i) {
       let line = lines[i];
       if (teams.includes(String(line[2]))) {
-        CheckLine(sheet, i+2, false);
+        CheckLine(sheet, i+2, false, values=null, properties=properties);
       }
     }
   }
-}
-
-function ManulaRecheck() {
-  let documentId = "19_3bzwSmXNqczLV_r7-pNTvOnJQb_fAQe20-be5OVD0";
-  let document = SpreadsheetApp.openById(documentId);
-  let startFrom = 2;
-  let teams = ['1311', 'Полбина-А', 'Полбина-В'];
-  RecheckTeams(document, teams, startFrom=startFrom);
 }
 
 function CheckAgainFailedLines() {
@@ -328,7 +387,7 @@ function CheckAgainFailedLines() {
   // let documentId = scriptProperties.getProperty("LinesCheckerTaskId");
 
   DeleteTimeTriggers();
-  let documentId = "11khw1gDrxsJ4wMR1dWHwYsFzOgbBK_0zhtKY9bPTRNg";
+  let documentId = "1rVavc-bRXOABort1BJgqZ_0qK4r57PwOhkdLgXVHE7Q";
   let document = SpreadsheetApp.openById(documentId);
   let sheet = document.getSheetByName("Проверка");
   let startIndex = Number(scriptProperties.getProperty("LinesCheckerIndex"));
@@ -353,7 +412,7 @@ function CheckAgainFailedLines() {
         break;
       } else {
         if (backgrounds[i-startIndex] == "#ffffff" || backgrounds[i-startIndex] == "#ffa500") {
-          CheckLine(sheet, i, null, null, properties);
+          CheckLine(sheet, i, null, values=null, properties=scriptProperties);
         }
       }
     }

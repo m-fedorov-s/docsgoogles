@@ -10,17 +10,29 @@ var SECOND_ANSWER_ALLOW = "Проверять так же как первую о
 var MAX_RUNNING_TIME = 5 * 60 * 1000; // 5 minutes in milliseconds
 var REASONABLE_TIME_TO_WAIT = 10 * 1000; // 10 seconds in milliseconds
 
+const SET_SETTINGS_ENDPOINT = "https://xx.xx.xx.xx:7562/settings";
+const SET_ANSWERS_ENDPOINT = "https://xx.xx.xx.xx:7562/answers";
+const CHECK_A_ENDPOINT = "https://xx.xx.xx.xx:7562/event";
 
-function Manually() {
-  // let id = "1ShwRjk8e8MzZ2huFqV7AthBukkni1AoUU9kR7NLDwZc";
-  // AbandonDocumentAndClear(id);
-  BackgroundSheetManager();
+const HTTP_OK = 200;
+
+function IsHttpOk(httpCode) {
+  return httpCode >= 200 && httpCode < 300;
 }
 
-function LaunchInitManually() {
-  let id = "19_3bzwSmXNqczLV_r7-pNTvOnJQb_fAQe20-be5OVD0";
-  let document = SpreadsheetApp.openById(id);
-  InitializeParallel(document);
+function GameTypeToInt(gameType) {
+  switch (gameType) {
+    case GAME_ABAKA: 
+      return 1;
+    case GAME_ABAKA_TRANSPOSED: 
+      return 2;
+    case GAME_KRESTIKI: 
+      return 3;
+    case GAME_KARUSEL: 
+      return 10;
+    default:
+      return 0;
+  }
 }
 
 function ClearProperties() {
@@ -234,21 +246,30 @@ function MeasureGetPropertiesAllTime() {
   // Execution took 53ms, avg = 0.053ms
 }
 
-function TestHttp() {
-  const url = 'https://x.x.x.x:xxx';
-  let data = {"name": "mark-2"}
-  let options = {
-    'method': 'POST', // or 'GET', 'PUT', etc.
-    'contentType': 'application/json', // adjust accordingly
-    'payload': JSON.stringify(data), // adjust data as needed
-    'validateHttpsCertificates': false,
-  };
-  var response = UrlFetchApp.fetch(url, options, );
-  Logger.log(response);
-}
 
-function SetPropManually() {
-  let documentId = "19_3bzwSmXNqczLV_r7-pNTvOnJQb_fAQe20-be5OVD0";
-  // PropertiesService.getScriptProperties().setProperty("LinesCheckerIndex", 2);
-  PropertiesService.getScriptProperties().setProperty(documentId + "gameType", GAME_ABAKA_TRANSPOSED);
+function MeasureHttpServerTime() {
+  let start = Date.now();
+  let times = 1000;
+  for (let i = 0; i < times; ++i) {
+    let payload = {
+      "GameID": "testgameid",
+      "Timestamp": "2024-11-03T13:44:00.000Z",
+      "MailHash": "hash-hash",
+      "TeamName": "test-team",
+      "ColumnName": "A",
+      "RowName": "1",
+      "Answer": "empty",
+    };
+    let options = {
+      'method': 'POST',
+      'contentType': 'application/json',
+      'payload': JSON.stringify(payload),
+      'validateHttpsCertificates': false,
+      'muteHttpExceptions': true,
+    };
+    UrlFetchApp.fetch(CHECK_A_ENDPOINT, options);
+  }
+  end = Date.now();
+  Logger.log("Execution took " + (end - start) + "ms, avg = " + ((end-start) / times) + "ms");
+  // Execution took 151485ms, avg = 151.485ms
 }
