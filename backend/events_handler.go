@@ -116,6 +116,7 @@ func CreateEventHandler(env *Environment) func(http.ResponseWriter, *http.Reques
 			Accepted:       shouldAccept,
 			Message:        message,
 			ExpectedAnswer: expected,
+			Value:          GetProblemValue(*settings, problemKey),
 		}
 		data, err := result.ToJson()
 		if err != nil {
@@ -125,4 +126,14 @@ func CreateEventHandler(env *Environment) func(http.ResponseWriter, *http.Reques
 		}
 		w.Write([]byte(data))
 	}
+}
+
+func GetProblemValue(s Settings, k ProblemKey) uint {
+	if s.Type == AbakaGameType {
+		return 10 * (k.RowIndex + 1)
+	}
+	if s.Type == TransposedAbakaGameType {
+		return 10 * (k.ColumnIndex + 1)
+	}
+	return 1
 }

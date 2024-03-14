@@ -12,11 +12,11 @@ import (
 type GameType int
 
 const (
-	UndefinedType     GameType = 0
-	AbakaGameType              = 1
-	TansposedAbaka             = 2
-	TicTacToeGameType          = 3
-	CarouselGameType           = 4
+	UndefinedType           GameType = 0
+	AbakaGameType                    = 1
+	TransposedAbakaGameType          = 2
+	TicTacToeGameType                = 3
+	CarouselGameType                 = 4
 )
 
 type SecondAnswerPolicy int

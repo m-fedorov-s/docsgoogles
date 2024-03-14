@@ -23,6 +23,7 @@ type CheckResponse struct {
 	Accepted       bool
 	Message        string
 	ExpectedAnswer string
+	Value          uint
 }
 
 func ParseCheckRequestFromJSON(input io.Reader) (CheckRequest, error) {
